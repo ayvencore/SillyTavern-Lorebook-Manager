@@ -1,19 +1,33 @@
 # Lorebook Manager
 
-`Lorebook Manager` is a third-party SillyTavern extension that adds a visual manager for lorebooks/world info files.
+`Lorebook Manager` is a third-party SillyTavern extension that adds a visual manager for lorebooks / World Info files.
 
-# Disclaimer
-I'm not versed in TypeScript, but I do have some experiences in building websites, and extending features to make them work in my favour. This extension, as a result IS vibe coded (with OpenAI Codex). It has not yet been tested on mobile. This is just the first iteration. Feedback, contribution, and feature requests are welcomed!
+## Features
 
-## What it adds
+- Adds a `Manager` button inside SillyTavern's built-in World Info drawer
+- Adds a lorebook cover button in the lorebook toolbar for quick cover upload, replacement, or removal
+- Opens a full lorebook manager modal with search, sort, and pagination
+- Supports named folders and nested subfolders for organizing lorebooks
+- Includes virtual views for `All Lorebooks`, `No Folder`, and `Active Lorebooks`
+- Shows card badges for `Active`, `Global`, and `No Folder` states
+- Lets you create, import, open, rename, move, cover, and delete lorebooks from one place
+- Allows drag-and-drop moving of lorebooks onto folders in the sidebar
+- Tracks active lorebooks for the current solo or group chat context
 
-- A `Manager` button inside the built-in World Info drawer
-- Named folders and nested subfolders for organizing lorebooks
-- A card-based browser with searchable lorebooks
-- Optional cover images for each lorebook
-- Quick actions to open, rename, move, import, create, and delete lorebooks
+## Active Lorebooks
 
-## How it stores data
+The `Active Lorebooks` view is chat-aware and is meant to show which lorebooks are currently attached to the active chat context.
+
+This currently includes:
+
+- Globally selected lorebooks
+- The chat-bound lorebook
+- The active solo character's lorebooks
+- Group members' lorebooks in group chats
+
+This is a lorebook-level view, not a per-entry activation viewer.
+
+## How It Stores Data
 
 - Folder tree state is stored in SillyTavern extension settings under `lorebookManager`
 - Per-lorebook manager data is stored inside each lorebook JSON under:
@@ -30,7 +44,7 @@ I'm not versed in TypeScript, but I do have some experiences in building website
 }
 ```
 
-This keeps covers and folder assignment attached to the lorebook instead of a separate sidecar file.
+This keeps folder assignment and cover data attached to the lorebook instead of using a separate sidecar file.
 
 ## Install
 
@@ -40,13 +54,10 @@ Place this extension folder inside your SillyTavern third-party extensions direc
 SillyTavern/data/<your-user>/extensions/
 ```
 
-Or install it with SillyTavern's built-in extension installer from the repository URL.
-
-```text
-https://github.com/ayvencore/SillyTavern-Lorebook-Manager
-```
+Or install it through SillyTavern's built-in extension installer from the repository URL.
 
 ## Notes
 
-- Cover images are uploaded through SillyTavern's normal user image storage.
-- Renaming from the manager uses SillyTavern's built-in rename flow so it behaves like the core lorebook editor.
+- Cover images are uploaded through SillyTavern's normal user image storage
+- Renaming from the manager uses SillyTavern's built-in rename flow so it behaves like the core lorebook editor
+- Folder assignment and cover images persist on each lorebook through the `extensions.lorebook_manager` field
