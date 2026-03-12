@@ -43,7 +43,7 @@ SillyTavern/data/<your-user>/extensions/
 Or install it with SillyTavern's built-in extension installer from the repository URL.
 
 ```text
-SillyTavern/data/<your-user>/extensions/
+https://github.com/ayvencore/SillyTavern-Lorebook-Manager
 ```
 
 ## Notes
