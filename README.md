@@ -3,7 +3,7 @@
 `Lorebook Manager` is a third-party SillyTavern extension that adds a visual manager for lorebooks/world info files.
 
 # Disclaimer
-I'm not versed in TypeScript, but I do have some experiences in building websites, and extending features to make them work in my favour. This extension, as a result IS vibe coded. It has not yet been tested on mobile. This is just the first iteration. Feedback, contribution, and feature requests are welcomed!
+I'm not versed in TypeScript, but I do have some experiences in building websites, and extending features to make them work in my favour. This extension, as a result IS vibe coded (with OpenAI Codex). It has not yet been tested on mobile. This is just the first iteration. Feedback, contribution, and feature requests are welcomed!
 
 ## What it adds
 
