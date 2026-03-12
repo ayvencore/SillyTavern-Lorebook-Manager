@@ -10,15 +10,18 @@ import {
     getFreeWorldName,
     importWorldInfo,
     loadWorldInfo,
+    METADATA_KEY as CHAT_LOREBOOK_METADATA_KEY,
     openWorldInfoEditor,
     saveWorldInfo,
     selected_world_info,
+    world_info,
 } from '../../../world-info.js';
 
 import { Popup } from '../../../popup.js';
 import {
     ensureImageFormatSupported,
     getBase64Async,
+    getCharaFilename,
     saveBase64AsFile,
 } from '../../../utils.js';
 
@@ -27,6 +30,7 @@ const LOREBOOK_META_KEY = 'lorebook_manager';
 const IMAGE_SUBFOLDER = 'lorebook-manager';
 const SPECIAL_FOLDERS = Object.freeze({
     ALL: '__all__',
+    ACTIVE: '__active__',
     UNFILED: '__unfiled__',
 });
 const PAGE_SIZE_OPTIONS = Object.freeze([10, 25, 50, 100]);
@@ -52,6 +56,7 @@ const state = {
     pendingCoverTarget: '',
     refreshToken: 0,
     refreshTimer: null,
+    activeLorebookNames: new Set(),
     dom: {},
     buttonObserver: null,
     worldListObserver: null,
@@ -199,8 +204,76 @@ function countUnfiledLorebooks() {
     return state.lorebooks.filter(record => !record.folderId).length;
 }
 
+function countActiveLorebooks() {
+    return state.lorebooks.filter(record => state.activeLorebookNames.has(record.apiName)).length;
+}
+
 function isRealFolderId(folderId) {
-    return Boolean(folderId) && folderId !== SPECIAL_FOLDERS.ALL && folderId !== SPECIAL_FOLDERS.UNFILED;
+    return Boolean(folderId)
+        && folderId !== SPECIAL_FOLDERS.ALL
+        && folderId !== SPECIAL_FOLDERS.ACTIVE
+        && folderId !== SPECIAL_FOLDERS.UNFILED;
+}
+
+function findCharacterByAvatarOrName(identifier, characters) {
+    if (!identifier || !Array.isArray(characters)) {
+        return null;
+    }
+
+    return characters.find(character => character?.avatar === identifier || character?.name === identifier) || null;
+}
+
+function getCharacterExtraLorebooks(character) {
+    const avatarKey = character?.avatar;
+    if (!avatarKey) {
+        return [];
+    }
+
+    const fileName = getCharaFilename(null, { manualAvatarKey: avatarKey });
+    const charLore = Array.isArray(world_info.charLore)
+        ? world_info.charLore.find(entry => entry?.name === fileName)
+        : null;
+
+    return Array.isArray(charLore?.extraBooks)
+        ? charLore.extraBooks.filter(name => typeof name === 'string' && name.trim())
+        : [];
+}
+
+function collectCharacterLorebooks(activeLorebooks, character) {
+    const primaryLorebook = character?.data?.extensions?.world;
+    if (typeof primaryLorebook === 'string' && primaryLorebook.trim()) {
+        activeLorebooks.add(primaryLorebook.trim());
+    }
+
+    getCharacterExtraLorebooks(character).forEach(name => activeLorebooks.add(name.trim()));
+}
+
+function syncActiveLorebooks() {
+    const context = getContext();
+    const activeLorebooks = new Set();
+
+    selected_world_info
+        .filter(name => typeof name === 'string' && name.trim())
+        .forEach(name => activeLorebooks.add(name.trim()));
+
+    const chatLorebook = context.chatMetadata?.[CHAT_LOREBOOK_METADATA_KEY];
+    if (typeof chatLorebook === 'string' && chatLorebook.trim()) {
+        activeLorebooks.add(chatLorebook.trim());
+    }
+
+    if (context.groupId) {
+        const group = Array.isArray(context.groups)
+            ? context.groups.find(candidate => String(candidate?.id) === String(context.groupId))
+            : null;
+
+        (group?.members ?? []).forEach(member => {
+            collectCharacterLorebooks(activeLorebooks, findCharacterByAvatarOrName(member, context.characters));
+        });
+    } else {
+        collectCharacterLorebooks(activeLorebooks, context.characters?.[context.characterId]);
+    }
+
+    state.activeLorebookNames = activeLorebooks;
 }
 
 function normalizeLorebookMeta(rawMeta) {
@@ -313,6 +386,10 @@ function getVisibleLorebooks() {
 
     return state.lorebooks
         .filter(record => {
+            if (folderFilter === SPECIAL_FOLDERS.ACTIVE && !state.activeLorebookNames.has(record.apiName)) {
+                return false;
+            }
+
             if (folderFilter === SPECIAL_FOLDERS.UNFILED && record.folderId) {
                 return false;
             }
@@ -582,6 +659,7 @@ function renderManager() {
         return;
     }
 
+    syncActiveLorebooks();
     renderFolderTree();
     renderLorebookGrid();
     renderHeaderState();
@@ -593,6 +671,9 @@ function renderHeaderState() {
     }
 
     switch (state.activeFolderId) {
+        case SPECIAL_FOLDERS.ACTIVE:
+            state.dom.breadcrumb.textContent = 'Active Lorebooks';
+            break;
         case SPECIAL_FOLDERS.UNFILED:
             state.dom.breadcrumb.textContent = 'No Folder';
             break;
@@ -643,6 +724,15 @@ function renderFolderTree() {
         iconClass: 'fa-inbox',
         selectable: true,
         dropTarget: true,
+    }));
+
+    tree.appendChild(createVirtualFolderRow({
+        id: SPECIAL_FOLDERS.ACTIVE,
+        label: 'Active Lorebooks',
+        count: countActiveLorebooks(),
+        iconClass: 'fa-bolt',
+        selectable: true,
+        dropTarget: false,
     }));
 
     getSortedFolders().forEach(folder => {
@@ -825,11 +915,14 @@ function createLorebookCard(record) {
 
     const badges = document.createElement('div');
     badges.className = 'lmb_card_badges';
+    if (state.activeLorebookNames.has(record.apiName)) {
+        badges.appendChild(createBadge('Active', 'fa-bolt'));
+    }
     if (selected_world_info.includes(record.apiName)) {
         badges.appendChild(createBadge('Global', 'fa-globe'));
     }
-    if (record.folderId) {
-        badges.appendChild(createBadge('Filed', 'fa-folder-open'));
+    if (!record.folderId) {
+        badges.appendChild(createBadge('No Folder', 'fa-folder'));
     }
     cover.appendChild(badges);
 
@@ -1608,6 +1701,9 @@ function initialize() {
     const context = getContext();
     context.eventSource.on(context.eventTypes.WORLDINFO_UPDATED, handleWorldInfoUpdated);
     context.eventSource.on(context.eventTypes.WORLDINFO_SETTINGS_UPDATED, () => {
+        renderManager();
+    });
+    context.eventSource.on(context.eventTypes.CHAT_CHANGED, () => {
         renderManager();
     });
 }
