@@ -14,6 +14,11 @@
 - Allows drag-and-drop moving of lorebooks onto folders in the sidebar
 - Tracks active lorebooks for the current solo or group chat context
 
+## Images
+
+![image](https://i.imgur.com/ANDlGoh.png)
+![image](https://i.imgur.com/fs1Yw4A.png)
+
 ## Active Lorebooks
 
 The `Active Lorebooks` view is chat-aware and is meant to show which lorebooks are currently attached to the active chat context.
