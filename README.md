@@ -66,3 +66,10 @@ Or install it through SillyTavern's built-in extension installer from the reposi
 - Cover images are uploaded through SillyTavern's normal user image storage
 - Renaming from the manager uses SillyTavern's built-in rename flow so it behaves like the core lorebook editor
 - Folder assignment and cover images persist on each lorebook through the `extensions.lorebook_manager` field
+
+## Disclaimers
+
+- This is my first full extension, and it was vibe coded!
+- It hasn't been tested on mobile yet
+- Thank you to my friend Fae for the "Active Lorebooks" idea
+- Feedback, contributions, and forks are welcomed!
