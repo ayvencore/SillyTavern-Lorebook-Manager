@@ -53,13 +53,11 @@ This keeps folder assignment and cover data attached to the lorebook instead of 
 
 ## Install
 
-Place this extension folder inside your SillyTavern third-party extensions directory:
+Install it through SillyTavern's built-in extension installer from the repository URL:
 
 ```text
-SillyTavern/data/<your-user>/extensions/
+https://github.com/ayvencore/SillyTavern-Lorebook-Manager
 ```
-
-Or install it through SillyTavern's built-in extension installer from the repository URL.
 
 ## Notes
 
