@@ -2,6 +2,8 @@
 
 `Lorebook Manager` is a third-party SillyTavern extension that adds a visual manager for lorebooks / World Info files.
 
+Current version: `0.8`
+
 ## Features
 
 - Adds a `Manager` button inside SillyTavern's built-in World Info drawer

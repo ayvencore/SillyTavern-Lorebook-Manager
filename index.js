@@ -60,6 +60,8 @@ const state = {
     dom: {},
     buttonObserver: null,
     worldListObserver: null,
+    worldListElement: null,
+    toolbarSyncFrame: 0,
 };
 
 const EXTENSION_NAME = (() => {
@@ -670,20 +672,7 @@ function renderHeaderState() {
         return;
     }
 
-    switch (state.activeFolderId) {
-        case SPECIAL_FOLDERS.ACTIVE:
-            state.dom.breadcrumb.textContent = 'Active Lorebooks';
-            break;
-        case SPECIAL_FOLDERS.UNFILED:
-            state.dom.breadcrumb.textContent = 'No Folder';
-            break;
-        case SPECIAL_FOLDERS.ALL:
-            state.dom.breadcrumb.textContent = 'All lorebooks';
-            break;
-        default:
-            state.dom.breadcrumb.textContent = getFolderPathLabel(state.activeFolderId);
-            break;
-    }
+    state.dom.breadcrumb.textContent = getActiveFolderLabel(state.activeFolderId);
 
     const visible = getVisibleLorebooks().length;
     const totalPages = clampCurrentPage(visible);
@@ -865,6 +854,8 @@ function renderLorebookGrid() {
 
     const visibleLorebooks = getVisibleLorebooks();
     const visibleOnPage = getLorebooksOnCurrentPage(visibleLorebooks);
+    const folderOptions = buildFolderOptions();
+    const globalLorebooks = new Set(selected_world_info);
     grid.innerHTML = '';
 
     if (!visibleLorebooks.length) {
@@ -873,7 +864,7 @@ function renderLorebookGrid() {
     }
 
     setEmptyMessage('');
-    visibleOnPage.forEach(record => grid.appendChild(createLorebookCard(record)));
+    visibleOnPage.forEach(record => grid.appendChild(createLorebookCard(record, { folderOptions, globalLorebooks })));
 }
 
 function getLorebooksOnCurrentPage(visibleLorebooks) {
@@ -888,7 +879,7 @@ function getLorebooksOnCurrentPage(visibleLorebooks) {
     return visibleLorebooks.slice(startIndex, startIndex + state.pageSize);
 }
 
-function createLorebookCard(record) {
+function createLorebookCard(record, { folderOptions, globalLorebooks }) {
     const card = document.createElement('article');
     card.className = 'lmb_card';
     card.draggable = true;
@@ -915,15 +906,9 @@ function createLorebookCard(record) {
 
     const badges = document.createElement('div');
     badges.className = 'lmb_card_badges';
-    if (state.activeLorebookNames.has(record.apiName)) {
-        badges.appendChild(createBadge('Active', 'fa-bolt'));
-    }
-    if (selected_world_info.includes(record.apiName)) {
-        badges.appendChild(createBadge('Global', 'fa-globe'));
-    }
-    if (!record.folderId) {
-        badges.appendChild(createBadge('No Folder', 'fa-folder'));
-    }
+    getLorebookBadges(record, globalLorebooks).forEach(({ label, iconClass }) => {
+        badges.appendChild(createBadge(label, iconClass));
+    });
     cover.appendChild(badges);
 
     const body = document.createElement('div');
@@ -966,14 +951,7 @@ function createLorebookCard(record) {
     openButton.dataset.lmbBookAction = 'open';
     openButton.innerHTML = '<i class="fa-solid fa-book-open"></i><span>Open</span>';
 
-    const folderSelect = document.createElement('select');
-    folderSelect.className = 'text_pole textarea_compact lmb_card_folder_select';
-    folderSelect.dataset.lmbField = 'folder';
-    folderSelect.dataset.bookName = record.apiName;
-    folderSelect.title = `Move "${record.displayName}" to a folder`;
-    folderSelect.appendChild(new Option('No Folder', ''));
-    buildFolderOptions().forEach(option => folderSelect.appendChild(option));
-    folderSelect.value = record.folderId || '';
+    const folderSelect = createLorebookFolderSelect(record, folderOptions);
 
     const renameButton = createCardIconButton('rename', 'Rename with the built-in editor', 'fa-pencil');
     const coverButton = createCardIconButton('upload-cover', 'Upload or replace cover', 'fa-image');
@@ -992,6 +970,33 @@ function createLorebookCard(record) {
     return card;
 }
 
+function getActiveFolderLabel(folderId) {
+    switch (folderId) {
+        case SPECIAL_FOLDERS.ACTIVE:
+            return 'Active Lorebooks';
+        case SPECIAL_FOLDERS.UNFILED:
+            return 'No Folder';
+        case SPECIAL_FOLDERS.ALL:
+            return 'All lorebooks';
+        default:
+            return getFolderPathLabel(folderId);
+    }
+}
+
+function getLorebookBadges(record, globalLorebooks) {
+    const badges = [];
+    if (state.activeLorebookNames.has(record.apiName)) {
+        badges.push({ label: 'Active', iconClass: 'fa-bolt' });
+    }
+    if (globalLorebooks.has(record.apiName)) {
+        badges.push({ label: 'Global', iconClass: 'fa-globe' });
+    }
+    if (!record.folderId) {
+        badges.push({ label: 'No Folder', iconClass: 'fa-folder' });
+    }
+    return badges;
+}
+
 function createBadge(label, iconClass) {
     const badge = document.createElement('span');
     badge.className = 'lmb_badge';
@@ -1008,6 +1013,18 @@ function createCardIconButton(action, title, iconClass) {
     button.setAttribute('aria-label', title);
     button.innerHTML = `<i class="fa-solid ${iconClass}"></i>`;
     return button;
+}
+
+function createLorebookFolderSelect(record, folderOptions) {
+    const folderSelect = document.createElement('select');
+    folderSelect.className = 'text_pole textarea_compact lmb_card_folder_select';
+    folderSelect.dataset.lmbField = 'folder';
+    folderSelect.dataset.bookName = record.apiName;
+    folderSelect.title = `Move "${record.displayName}" to a folder`;
+    folderSelect.appendChild(new Option('No Folder', ''));
+    folderOptions.forEach(option => folderSelect.appendChild(option.cloneNode(true)));
+    folderSelect.value = record.folderId || '';
+    return folderSelect;
 }
 
 function buildFolderOptions() {
@@ -1501,6 +1518,33 @@ function scheduleRefresh(delay = 120) {
     }, delay);
 }
 
+function getWorldToolbarRow() {
+    const deleteButton = document.getElementById('world_popup_delete');
+    if (deleteButton?.parentElement instanceof HTMLElement) {
+        return deleteButton.parentElement;
+    }
+
+    const editorSelect = document.getElementById('world_editor_select');
+    if (editorSelect?.parentElement instanceof HTMLElement) {
+        return editorSelect.parentElement;
+    }
+
+    const toolbarRow = document.querySelector('#world_popup .flex-container');
+    return toolbarRow instanceof HTMLElement ? toolbarRow : null;
+}
+
+function scheduleToolbarSync() {
+    if (state.toolbarSyncFrame) {
+        return;
+    }
+
+    state.toolbarSyncFrame = requestAnimationFrame(() => {
+        state.toolbarSyncFrame = 0;
+        injectManagerButton();
+        startWorldListObserver();
+    });
+}
+
 function placeToolbarButton(toolbarRow, button, beforeNode = null) {
     if (!(toolbarRow instanceof HTMLElement) || !(button instanceof HTMLElement)) {
         return;
@@ -1523,36 +1567,24 @@ function placeToolbarButton(toolbarRow, button, beforeNode = null) {
 }
 
 function injectManagerButton() {
-    const toolbarRow = document.querySelector('#world_popup .flex-container');
+    const toolbarRow = getWorldToolbarRow();
     if (!toolbarRow) {
         return;
     }
 
     const deleteButton = document.getElementById('world_popup_delete');
-    let coverButton = document.getElementById('lorebook_cover_button');
-    if (!coverButton) {
-        coverButton = document.createElement('div');
-        coverButton.id = 'lorebook_cover_button';
-        coverButton.className = 'menu_button menu_button_icon interactable';
-        coverButton.setAttribute('role', 'button');
-        coverButton.setAttribute('tabindex', '0');
-        coverButton.setAttribute('aria-label', 'Set a lorebook cover');
-        coverButton.innerHTML = '<i class="fa-solid fa-image"></i>';
-        coverButton.addEventListener('click', onCurrentLorebookCoverClick);
-    }
-
-    let managerButton = document.getElementById('lorebook_manager_button');
-    if (!managerButton) {
-        managerButton = document.createElement('div');
-        managerButton.id = 'lorebook_manager_button';
-        managerButton.className = 'menu_button menu_button_icon interactable';
-        managerButton.title = 'Open Lorebook Manager';
-        managerButton.setAttribute('role', 'button');
-        managerButton.setAttribute('aria-label', 'Open Lorebook Manager');
-        managerButton.setAttribute('tabindex', '0');
-        managerButton.innerHTML = '<i class="fa-solid fa-folder-tree"></i><span>Manager</span>';
-        managerButton.addEventListener('click', openManager);
-    }
+    const coverButton = getOrCreateToolbarButton({
+        id: 'lorebook_cover_button',
+        title: 'Set a lorebook cover',
+        iconHtml: '<i class="fa-solid fa-image"></i>',
+        onClick: onCurrentLorebookCoverClick,
+    });
+    const managerButton = getOrCreateToolbarButton({
+        id: 'lorebook_manager_button',
+        title: 'Open Lorebook Manager',
+        iconHtml: '<i class="fa-solid fa-folder-tree"></i><span>Manager</span>',
+        onClick: openManager,
+    });
 
     if (deleteButton?.parentElement === toolbarRow) {
         placeToolbarButton(toolbarRow, managerButton, deleteButton);
@@ -1565,30 +1597,49 @@ function injectManagerButton() {
     updateWorldToolbarButtons();
 }
 
+function getOrCreateToolbarButton({ id, title, iconHtml, onClick }) {
+    let button = document.getElementById(id);
+    if (button) {
+        return button;
+    }
+
+    button = document.createElement('div');
+    button.id = id;
+    button.className = 'menu_button menu_button_icon interactable';
+    button.title = title;
+    button.setAttribute('role', 'button');
+    button.setAttribute('aria-label', title);
+    button.setAttribute('tabindex', '0');
+    button.innerHTML = iconHtml;
+    button.addEventListener('click', onClick);
+    return button;
+}
+
 function startButtonObserver() {
     if (state.buttonObserver) {
         return;
     }
 
     state.buttonObserver = new MutationObserver(() => {
-        injectManagerButton();
-        startWorldListObserver();
+        scheduleToolbarSync();
     });
 
     state.buttonObserver.observe(document.body, { childList: true, subtree: true });
-    injectManagerButton();
-    startWorldListObserver();
+    scheduleToolbarSync();
 }
 
 function startWorldListObserver() {
-    if (state.worldListObserver) {
+    const worldSelect = document.getElementById('world_editor_select');
+    if (!(worldSelect instanceof HTMLElement)) {
         return;
     }
 
-    const worldSelect = document.getElementById('world_editor_select');
-    if (!worldSelect) {
+    if (state.worldListElement === worldSelect) {
         return;
     }
+
+    state.worldListObserver?.disconnect();
+    state.worldListElement = worldSelect;
 
     if (!worldSelect.dataset.lmbBound) {
         worldSelect.addEventListener('change', updateWorldToolbarButtons);
@@ -1644,16 +1695,23 @@ function updateWorldToolbarButtons() {
     const apiName = getCurrentEditorLorebookName();
     const record = apiName ? findLorebook(apiName) : null;
     const hasCover = Boolean(record?.coverPath);
-    const title = apiName
-        ? (hasCover
-            ? `Set or replace the cover for "${record?.displayName || apiName}". Shift-click to remove the current cover.`
-            : `Set a cover for "${record?.displayName || apiName}".`)
-        : 'Open a lorebook to set a cover.';
+    const title = getCoverButtonTitle(apiName, record, hasCover);
 
     coverButton.title = title;
     coverButton.setAttribute('aria-label', title);
     coverButton.classList.toggle('is-disabled', !apiName);
     coverButton.classList.toggle('has-cover', hasCover);
+}
+
+function getCoverButtonTitle(apiName, record, hasCover) {
+    if (!apiName) {
+        return 'Open a lorebook to set a cover.';
+    }
+
+    const displayName = record?.displayName || apiName;
+    return hasCover
+        ? `Set or replace the cover for "${displayName}". Shift-click to remove the current cover.`
+        : `Set a cover for "${displayName}".`;
 }
 
 async function onCurrentLorebookCoverClick(event) {
