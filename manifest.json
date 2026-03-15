@@ -3,7 +3,7 @@
     "loading_order": 100,
     "js": "index.js",
     "css": "style.css",
-    "author": "OpenAI Codex",
+    "author": "Codex and Ayvencore",
     "version": "0.8.0",
     "homePage": "https://github.com/SillyTavern/SillyTavern",
     "auto_update": false
