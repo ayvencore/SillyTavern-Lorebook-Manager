@@ -61,6 +61,10 @@ Install it through SillyTavern's built-in extension installer from the repositor
 https://github.com/ayvencore/SillyTavern-Lorebook-Manager
 ```
 
+## Support Me
+
+Like what I'm doing? Consider supporting me on [Kofi](https://ko-fi.com/ayvencore)
+
 ## Notes
 
 - Cover images are uploaded through SillyTavern's normal user image storage
